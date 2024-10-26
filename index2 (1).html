@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paging Algorithm Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: none; /* Hidden initially until after loading */
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        label {
+            margin-top: 10px;
+        }
+
+        input, select, button {
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #result-container {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .miss {
+            background-color: #ff6666;
+            color: white;
+        }
+
+        .hit {
+            background-color: #66ff66;
+            color: white;
+        }
+
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #f5f5f5;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            table {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading animation container -->
+    <div class="loading-container" id="loading">
+        <dotlottie-player src="https://lottie.host/e8b22c3f-b258-404e-8730-4ad503ad7c7d/2o8E7Z7OoR.json" background="transparent" speed="1" style="width: 300px; height: 300px;" loop autoplay></dotlottie-player>
+    </div>
+
+    <!-- Main content container -->
+    <div class="container" id="main-content">
+        <h1>Paging Algorithm Simulator</h1>
+        <div class="form">
+            <label for="algorithm">Choose an Algorithm:</label>
+            <select id="algorithm">
+                <option value="fifo">FIFO</option>
+                <option value="lru">LRU</option>
+                <option value="optimal">Optimal</option>
+            </select>
+            <label for="page-input">Enter Page References (comma-separated):</label>
+            <input type="text" id="page-input" placeholder="e.g. 7,0,1,2,0,3,0,4">
+            <button onclick="runAlgorithm()">Run</button>
+        </div>
+        <div id="result-container"></div>
+    </div>
+
+    <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
+    
+    <script>
+        // Delay to show loading screen for 3 seconds
+        setTimeout(() => {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("main-content").style.display = "block";
+        }, 8000);
+
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        const algorithms = {
+            fifo: (pages, frames) => {
+                let result = [];
+                let queue = [];
+                let pageFaults = 0;
+                let pageHits = 0;
+
+                pages.forEach((page, index) => {
+                    if (!queue.includes(page)) {
+                        if (queue.length < frames) {
+                            queue.push(page);
+                        } else {
+                            queue.shift();
+                            queue.push(page);
+                        }
+                        result.push({ page, frames: [...queue], miss: true });
+                        pageFaults++;
+                    } else {
+                        result.push({ page, frames: [...queue], miss: false });
+                        pageHits++;
+                    }
+                });
+
+                return { result, pageFaults, pageHits };
+            },
+
+            lru: (pages, frames) => {
+                let result = [];
+                let queue = [];
+                let recent = [];
+                let pageFaults = 0;
+                let pageHits = 0;
+
+                pages.forEach((page, index) => {
+                    if (!queue.includes(page)) {
+                        if (queue.length < frames) {
+                            queue.push(page);
+                            recent.push(page);
+                        } else {
+                            let leastRecentlyUsed = recent.shift();
+                            let indexToReplace = queue.indexOf(leastRecentlyUsed);
+                            queue[indexToReplace] = page;
+                            recent.push(page);
+                        }
+                        result.push({ page, frames: [...queue], miss: true });
+                        pageFaults++;
+                    } else {
+                        recent.push(recent.splice(recent.indexOf(page), 1)[0]);
+                        result.push({ page, frames: [...queue], miss: false });
+                        pageHits++;
+                    }
+                });
+
+                return { result, pageFaults, pageHits };
+            },
+
+            optimal: (pages, frames) => {
+                let result = [];
+                let queue = [];
+                let pageFaults = 0;
+                let pageHits = 0;
+
+                pages.forEach((page, index) => {
+                    if (!queue.includes(page)) {
+                        if (queue.length < frames) {
+                            queue.push(page);
+                        } else {
+                            let future = pages.slice(index + 1);
+                            let replaceIndex = queue.findIndex(q => !future.includes(q));
+                            if (replaceIndex === -1) {
+                                replaceIndex = queue.reduce((lastIndex, frame, i) => {
+                                    let nextUsage = future.indexOf(frame);
+                                    return nextUsage > lastIndex ? i : lastIndex;
+                                }, -1);
+                            }
+                            queue[replaceIndex] = page;
+                        }
+                        result.push({ page, frames: [...queue], miss: true });
+                        pageFaults++;
+                    } else {
+                        result.push({ page, frames: [...queue], miss: false });
+                        pageHits++;
+                    }
+                });
+
+                return { result, pageFaults, pageHits };
+            }
+        };
+
+        async function runAlgorithm() {
+            const algorithm = document.getElementById('algorithm').value;
+            const pages = document.getElementById('page-input').value.split(',').map(Number);
+            const frames = 3; // Fixed number of frames
+
+            const { result, pageFaults, pageHits } = algorithms[algorithm](pages, frames);
+
+            await displayResult(result, pageFaults, pageHits);
+        }
+
+        async function displayResult(result, pageFaults, pageHits) {
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.innerHTML = '';
+
+            let tableContainer = document.createElement('div');
+            tableContainer.classList.add('table-container');
+
+            let table = document.createElement('table');
+            let headerRow = document.createElement('tr');
+
+            let framesHeader = document.createElement('th');
+            framesHeader.textContent = 'Frames';
+            headerRow.appendChild(framesHeader);
+
+            result.forEach(r => {
+                let th = document.createElement('th');
+                th.textContent = r.page;
+                headerRow.appendChild(th);
+            });
+
+            table.appendChild(headerRow);
+
+            for (let i = 0; i < 3; i++) {
+                let row = document.createElement('tr');
+                let frameCell = document.createElement('td');
+                frameCell.textContent = `Frame ${i + 1}`;
+                row.appendChild(frameCell);
+
+                for (let r of result) {
+                    let td = document.createElement('td');
+                    td.textContent = r.frames[i] !== undefined ? r.frames[i] : '';
+                    row.appendChild(td);
+                }
+                table.appendChild(row);
+            }
+
+            let hitMissRow = document.createElement('tr');
+            let hitMissLabel = document.createElement('td');
+            hitMissLabel.textContent = 'Hit/Miss';
+            hitMissRow.appendChild(hitMissLabel);
+
+            result.forEach(async (r, index) => {
+                await delay(1000);  // 1 second delay for each step
+
+                let td = document.createElement('td');
+                td.className = r.miss ? 'miss' : 'hit';
+                td.textContent = r.miss ? 'Miss' : 'Hit';
+                hitMissRow.appendChild(td);
+            });
+
+            table.appendChild(hitMissRow);
+            tableContainer.appendChild(table);
+
+            resultContainer.appendChild(tableContainer);
+
+            let summary = document.createElement('p');
+            summary.textContent = `Page Faults: ${pageFaults}, Page Hits: ${pageHits}, Hit/Miss Ratio: ${(pageHits / pageFaults).toFixed(2)}`;
+            resultContainer.appendChild(summary);
+        }
+    </script>
+</body>
+</html>
